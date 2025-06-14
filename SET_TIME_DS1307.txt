@@ -1,0 +1,115 @@
+
+
+; Init i2c ports first
+				CALL 	I2C_INIT
+	; Send start condition
+				CALL 	STARTC
+	; Send slave address
+				MOV 	A,#0D0H
+				CALL 	SEND
+	; after send call Carry flag has ACK bit
+	; If you want to check if send was a
+	; success or failure
+	; Send data
+				MOV 	A,#00H
+				CALL 	SEND
+	; Send another data
+				MOV 	A,#00				;SECONDE
+				CALL 	SEND
+				MOV	A,#30H				;MINUTE
+				CALL	SEND
+				MOV	A,#15H				;HEURE
+				CALL	SEND
+				
+				MOV	A,#03H				;JOUR
+				CALL	SEND
+				MOV	A,#14H 				;DATE
+				CALL	SEND
+				MOV	A,#06H 				;MOIS
+				CALL	SEND
+				MOV	A,#22H 				;AN
+				CALL	SEND
+
+				MOV	A,#11H 				;SQWE = 1; 1Hz
+				CALL	SEND
+
+	; Send stop condition
+				CALL 	STOP
+
+;======================================================================================
+I2C_INIT:
+				SETB	SDA
+				SETB 	SCL
+				RET
+   				;----------
+RSTART:			;RESTART
+				CLR 	SCL
+				SETB 	SDA
+				SETB 	SCL
+				CLR 	SDA
+				RET
+ 				;----------
+STARTC:
+				SETB 	SCL
+				CLR 	SDA
+				CLR 	SCL
+				RET
+ 				;----------
+STOP:
+				CLR 	SCL
+				CLR 	SDA
+				SETB 	SCL
+				SETB 	SDA
+				RET
+ 				;----------
+SEND:
+				MOV 	R7,#08
+BACK:
+				CLR 	SCL
+				RLC 	A
+				MOV 	SDA,C
+				SETB 	SCL
+				DJNZ 	R7,BACK
+				CLR 	SCL
+				SETB 	SDA
+				SETB 	SCL
+				MOV 	C, SDA
+				CLR 	SCL
+				RET
+ 
+;*****************************************
+;ACK and NAK for I2C Bus
+;*****************************************
+ACK:
+				CLR 	SDA
+				SETB 	SCL
+				CLR 	SCL
+				SETB 	SDA
+				RET
+ 
+NAK:
+				SETB 	SDA
+				SETB 	SCL
+				CLR 	SCL
+				SETB 	SCL
+				RET
+ 
+;*****************************************
+;Receiving Data from slave on I2C bus
+;*****************************************
+RECV:
+				MOV 	R7,#08
+BACK2:
+				CLR 	SCL
+				SETB 	SCL
+				MOV 	C,SDA
+				RLC 	A
+				DJNZ 	R7,BACK2
+				CLR 	SCL
+				SETB 	SDA
+				RET
+
+
+
+
+

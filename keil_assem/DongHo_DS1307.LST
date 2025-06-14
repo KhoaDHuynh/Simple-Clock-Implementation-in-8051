@@ -1,0 +1,666 @@
+A51 MACRO ASSEMBLER  DONGHO_DS1307                                                        06/15/2022 16:15:02 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.02
+OBJECT MODULE PLACED IN DongHo_DS1307.OBJ
+ASSEMBLER INVOKED BY: C:\Keil\C51\BIN\A51.EXE DongHo_DS1307.a51 SET(SMALL) DEBUG EP
+
+LOC  OBJ            LINE     SOURCE
+
+                       1     ; Xe do line su dung cam bien hong ngoai
+                       2     ;
+                       3     ;Written by: HUYNH DANG KHOA    11:11PM         08/06/2022
+                       4     ;=====================================================
+                       5                     ;LCD
+  0080                 6     BUS_LCD                 EQU             P0
+  00B6                 7     EN                              BIT             P3.6
+  00B7                 8     RS                              BIT             P3.7
+                       9     ;---------------------------
+                      10     ;Ports Used for I2C Communication
+  00B0                11     SDA                             BIT     P3.0
+  00B1                12     SCL                             BIT             P3.1
+  00B4                13     BELL                    BIT             P3.4
+                      14     ;===================================================================
+0000                  15                                     ORG     0000H
+0000 020033           16                                     lJMP    MAIN
+0003 0200AD           17                                     LJMP    INT0_ISR
+000B                  18                                     ORG             000BH
+000B 02013D           19                                     LJMP    T0_ISR
+0013                  20                                     ORG     0013H
+0013 020160           21                                     LJMP    INT1_ISR
+001B                  22                                     ORG             001BH
+001B 020161           23                                     LJMP    T1_ISR
+0023                  24                                     ORG     0023H
+0023 020162           25                                     LJMP    SPI_ISR
+002B                  26                                     ORG             002BH
+002B 020163           27                                     LJMP    T2_ISR                                             
+                                  
+                      28     ;=============================================
+0033                  29                                     ORG     0033H
+0033                  30     MAIN:           
+0033 75815F           31                                     MOV     SP,#5FH
+0036 758911           32                                     MOV             TMOD,#11H
+                      33                                     ;---------------------
+0039 51E1             34                                     CALL    INITIAL                                 ;LCD    
+003B 90007D           35                                     MOV             DPTR,#TAB_LINE1
+003E 51A5             36                                     CALL    PRINT_LINE
+                      37     
+0040 74C0             38                                     MOV             A,#0C0H
+0042 7104             39                                     CALL    DELAY_2MS
+0044 C2B7             40                                     CLR             RS
+0046 7111             41                                     CALL    WRITE_OUT
+                      42     
+0048 90008D           43                                     MOV             DPTR,#TAB_LINE2
+004B 51A5             44                                     CALL    PRINT_LINE
+                      45                                     ;---------------------
+                      46     
+004D 514A             47                                     CALL    I2C_INIT
+004F 5158             48                                     CALL    STARTC
+0051 74D0             49                                     MOV     A,#0D0H
+0053 5168             50                                     CALL    SEND
+0055 7407             51                                     MOV     A,#07H
+0057 5168             52                                     CALL    SEND
+0059 7410             53                                     MOV             A,#10H                          ;SQWE = 1; 
+                             1Hz
+005B 5168             54                                     CALL    SEND
+005D 515F             55                                     CALL    STOP
+                      56      
+A51 MACRO ASSEMBLER  DONGHO_DS1307                                                        06/15/2022 16:15:02 PAGE     2
+
+                      57                                     ;---------------------
+                      58                                     
+005F 5103             59                                     CALL    READ_TIME_DS1307
+0061 3164             60                                     CALL    WRITE_SS
+0063 3171             61                                     CALL    WRITE_MM
+0065 317E             62                                     CALL    WRITE_HH
+0067 318B             63                                     CALL    WRITE_JJ
+0069 31B1             64                                     CALL    WRITE_DD
+006B 31BE             65                                     CALL    WRITE_MOIS
+006D 31CB             66                                     CALL    WRITE_YY
+                      67     
+006F 75B801           68                                     MOV             IP,#01H
+0072 D2AF             69                                     SETB    EA
+0074 D288             70                                     SETB    IT0
+0076 D2A8             71                                     SETB    EX0
+                      72     
+0078 438701           73     SLEEP_MODE:             ORL             PCON,#01H                                          
+                                    
+007B 80FB             74                                     SJMP    SLEEP_MODE
+                      75     
+007D 44415445         76     TAB_LINE1:              DB              'DATE:DD/DD/MM/YY'
+0081 3A44442F                
+0085 44442F4D                
+0089 4D2F5959                
+008D 54494D45         77     TAB_LINE2:              DB              'TIME:   HH:MM:SS'
+0091 3A202020                
+0095 48483A4D                
+0099 4D3A5353                
+009D 20205375         78     TAB_7JOUR:              DB              '  SuMoTuWeThFrSa'
+00A1 4D6F5475                
+00A5 57655468                
+00A9 46725361                
+                      79     ;============================================
+00AD                  80     INT0_ISR:       
+00AD C0E0             81                                     PUSH    ACC
+00AF C0D0             82                                     PUSH    PSW                             
+                      83                                     ;--------------
+00B1 7800             84                                     MOV             R0,#0
+00B3 5129             85                                     CALL    READ_REG_DS1307
+                      86     
+00B5 E530             87                                     MOV             A,30H
+00B7 B54002           88                                     CJNE    A,40H,INT0_ISR_01                               
+00BA 8065             89                                     JMP             EXIT_INT0_ISR
+00BC 853040           90     INT0_ISR_01:    MOV             40H,30H                 
+00BF 3164             91                                     CALL    WRITE_SS                                ;SECOND
+00C1                  92     INT0_ISR_02:
+00C1 7801             93                                     MOV             R0,#1
+00C3 5129             94                                     CALL    READ_REG_DS1307
+                      95     
+00C5 E531             96                                     MOV             A,31H
+00C7 B54102           97                                     CJNE    A,41H,INT0_ISR_03
+00CA 8055             98                                     JMP             EXIT_INT0_ISR
+00CC 853141           99     INT0_ISR_03:    MOV             41H,31H
+00CF 3171            100                                     CALL    WRITE_MM                                ;MINUTE
+00D1                 101     INT0_ISR_04:
+00D1 7802            102                                     MOV             R0,#2
+00D3 5129            103                                     CALL    READ_REG_DS1307
+                     104     
+00D5 E532            105                                     MOV             A,32H
+00D7 B54202          106                                     CJNE    A,42H,INT0_ISR_05
+00DA 8045            107                                     JMP             EXIT_INT0_ISR
+00DC 853242          108     INT0_ISR_05:    MOV             42H,32H
+00DF 317E            109                                     CALL    WRITE_HH                                ;HEURE
+00E1                 110     INT0_ISR_06:
+00E1 7803            111                                     MOV             R0,#3
+00E3 5129            112                                     CALL    READ_REG_DS1307
+A51 MACRO ASSEMBLER  DONGHO_DS1307                                                        06/15/2022 16:15:02 PAGE     3
+
+                     113     
+00E5 E533            114                                     MOV             A,33H
+00E7 B54302          115                                     CJNE    A,43H,INT0_ISR_07
+00EA 8035            116                                     JMP             EXIT_INT0_ISR
+00EC 853343          117     INT0_ISR_07:    MOV             43H,33H
+00EF 318B            118                                     CALL    WRITE_JJ                                ;JOUR
+00F1                 119     INT0_ISR_08:
+00F1 7804            120                                     MOV             R0,#4
+00F3 5129            121                                     CALL    READ_REG_DS1307
+                     122     
+00F5 E534            123                                     MOV             A,34H
+00F7 B54402          124                                     CJNE    A,44H,INT0_ISR_09
+00FA 8025            125                                     JMP             EXIT_INT0_ISR
+00FC 853444          126     INT0_ISR_09:    MOV             44H,34H
+00FF 31B1            127                                     CALL    WRITE_DD                                ;DATE
+0101                 128     INT0_ISR_10:
+0101 7805            129                                     MOV             R0,#5
+0103 5129            130                                     CALL    READ_REG_DS1307
+                     131     
+0105 E535            132                                     MOV             A,35H
+0107 B54502          133                                     CJNE    A,45H,INT0_ISR_11
+010A 8015            134                                     JMP             EXIT_INT0_ISR
+010C 853545          135     INT0_ISR_11:    MOV             45H,35H
+010F 31BE            136                                     CALL    WRITE_MOIS                              ;MOIS
+0111                 137     INT0_ISR_12:
+0111 7806            138                                     MOV             R0,#6
+0113 5129            139                                     CALL    READ_REG_DS1307
+                     140     
+0115 E536            141                                     MOV             A,36H
+0117 B54602          142                                     CJNE    A,46H,INT0_ISR_13
+011A 8005            143                                     JMP             EXIT_INT0_ISR
+011C 853646          144     INT0_ISR_13:    MOV             46H,36H
+011F 31CB            145                                     CALL    WRITE_YY                                ;AN
+                     146                                     
+0121                 147     EXIT_INT0_ISR:  
+0121 E532            148                                     MOV             A,32H
+0123 B40712          149                                     CJNE    A,#07H,DONT_RING_BELL   ;AT 07:00:00 RING BELL
+0126 E531            150                                     MOV             A,31H
+0128 B4000D          151                                     CJNE    A,#00H,DONT_RING_BELL
+012B E530            152                                     MOV             A,30H
+012D B40008          153                                     CJNE    A,#00H,DONT_RING_BELL
+0130 7E0A            154                                     MOV             R6,#10
+0132 7FF0            155                                     MOV             R7,#240
+0134 D2A9            156                                     SETB    ET0
+0136 D28C            157                                     SETB    TR0
+                     158     
+0138 D0D0            159     DONT_RING_BELL: POP             PSW
+013A D0E0            160                                     POP             ACC                             
+013C 32              161                                     RETI
+                     162     ;=============================================
+013D                 163     T0_ISR:         
+013D C0E0            164                                     PUSH    ACC                                     ;R6 = #10(X
+                             50ms) ;R7 = #240      (2m)
+013F C0D0            165                                     PUSH    PSW
+                     166                                     
+0141 C28C            167                                     CLR             TR0
+0143 758C3C          168                                     MOV             TH0,#HIGH(-50000)
+0146 758AB0          169                                     MOV             TL0,#LOW(-50000)
+0149 D28C            170                                     SETB    TR0
+014B DE0E            171                                     DJNZ    R6,EXIT_INT1_ISR
+014D B2B4            172                                     CPL             BELL
+014F 7E0A            173                                     MOV             R6,#10
+                     174     
+0151 DF08            175                                     DJNZ    R7,EXIT_INT1_ISR
+0153 C28C            176                                     CLR             TR0
+0155 D2B4            177                                     SETB    BELL
+A51 MACRO ASSEMBLER  DONGHO_DS1307                                                        06/15/2022 16:15:02 PAGE     4
+
+0157 C2A9            178                                     CLR             ET0
+0159 8000            179                                     SJMP    EXIT_INT1_ISR
+                     180                                                     
+015B D0D0            181     EXIT_INT1_ISR:  POP             PSW
+015D D0E0            182                                     POP             ACC                                        
+                                                                                          
+015F 32              183                                     RETI
+                     184     ;=============================================
+0160                 185     INT1_ISR:       
+0160 32              186                                     RETI
+                     187     ;=============================================
+0161                 188     T1_ISR:                         
+0161 32              189                                     RETI
+                     190     ;============================================                           
+0162                 191     SPI_ISR:                        
+0162 32              192                                     RETI
+                     193     ;=============================================                          
+0163                 194     T2_ISR:                                 
+0163 32              195                                     RETI
+                     196     ;=============================================
+0164                 197     WRITE_SS:
+0164 74CE            198                                     MOV             A,#0CEH                 ;CHUYEN CON TRO VE 
+                             08H
+0166 7104            199                                     CALL    DELAY_2MS                               
+0168 C2B7            200                                     CLR             RS
+016A 7111            201                                     CALL    WRITE_OUT
+                     202     
+016C 7930            203                                     MOV             R1,#30H
+016E 51C9            204                                     CALL    WRITE_RAM
+0170 22              205                                     RET
+                     206                                     ;----------------
+0171                 207     WRITE_MM:
+0171 74CB            208                                     MOV             A,#0CBH                 ;CHUYEN CON TRO VE 
+                             08H
+0173 7104            209                                     CALL    DELAY_2MS                               
+0175 C2B7            210                                     CLR             RS
+0177 7111            211                                     CALL    WRITE_OUT
+                     212     
+0179 7931            213                                     MOV             R1,#31H
+017B 51C9            214                                     CALL    WRITE_RAM
+017D 22              215                                     RET
+                     216                                     ;----------------
+017E                 217     WRITE_HH:
+017E 74C8            218                                     MOV             A,#0C8H                 ;CHUYEN CON TRO VE 
+                             08H
+0180 7104            219                                     CALL    DELAY_2MS                               
+0182 C2B7            220                                     CLR             RS
+0184 7111            221                                     CALL    WRITE_OUT
+                     222     
+0186 7932            223                                     MOV             R1,#32H
+0188 51C9            224                                     CALL    WRITE_RAM
+018A 22              225                                     RET
+                     226                                     ;----------------
+018B                 227     WRITE_JJ:
+018B 7485            228                                     MOV             A,#85H                  ;CHUYEN CON TRO VE 
+                             08H
+018D 7104            229                                     CALL    DELAY_2MS                               
+018F C2B7            230                                     CLR             RS
+0191 7111            231                                     CALL    WRITE_OUT
+                     232     
+0193 90009D          233                                     MOV             DPTR,#TAB_7JOUR
+0196 E533            234                                     MOV             A,33H
+0198 75F002          235                                     MOV             B,#2
+019B A4              236                                     MUL             AB
+019C F5F0            237                                     MOV             B,A
+019E 93              238                                     MOVC    A,@A+DPTR
+A51 MACRO ASSEMBLER  DONGHO_DS1307                                                        06/15/2022 16:15:02 PAGE     5
+
+019F 7104            239                                     CALL    DELAY_2MS
+01A1 D2B7            240                                     SETB    RS
+01A3 7111            241                                     CALL    WRITE_OUT
+                     242     
+01A5 E5F0            243                                     MOV             A,B
+01A7 04              244                                     INC             A
+01A8 93              245                                     MOVC    A,@A+DPTR
+01A9 7104            246                                     CALL    DELAY_2MS
+01AB D2B7            247                                     SETB    RS
+01AD 7111            248                                     CALL    WRITE_OUT
+01AF 22              249                                     RET
+01B0 22              250                                     RET
+                     251                                     ;----------------
+01B1                 252     WRITE_DD:
+01B1 7488            253                                     MOV             A,#88H                  ;CHUYEN CON TRO VE 
+                             08H
+01B3 7104            254                                     CALL    DELAY_2MS                               
+01B5 C2B7            255                                     CLR             RS
+01B7 7111            256                                     CALL    WRITE_OUT
+                     257     
+                     258     
+01B9 7934            259                                     MOV             R1,#34H
+01BB 51C9            260                                     CALL    WRITE_RAM
+01BD 22              261                                     RET
+                     262                                     ;----------------
+01BE                 263     WRITE_MOIS:
+01BE 748B            264                                     MOV             A,#8BH                  ;CHUYEN CON TRO VE 
+                             08H
+01C0 7104            265                                     CALL    DELAY_2MS                               
+01C2 C2B7            266                                     CLR             RS
+01C4 7111            267                                     CALL    WRITE_OUT
+                     268     
+                     269     
+01C6 7935            270                                     MOV             R1,#35H
+01C8 51C9            271                                     CALL    WRITE_RAM
+01CA 22              272                                     RET
+                     273                                     ;----------------
+01CB                 274     WRITE_YY:
+01CB 748E            275                                     MOV             A,#8EH                  ;CHUYEN CON TRO VE 
+                             08H
+01CD 7104            276                                     CALL    DELAY_2MS                               
+01CF C2B7            277                                     CLR             RS
+01D1 7111            278                                     CALL    WRITE_OUT
+                     279     
+01D3 7936            280                                     MOV             R1,#36H
+01D5 51C9            281                                     CALL    WRITE_RAM
+01D7 22              282                                     RET
+                     283                                     ;----------------
+                     284     ;===============================================================
+01D8                 285     SET_TIME_DS1307:
+01D8 514A            286                                     CALL    I2C_INIT
+01DA 5158            287                                     CALL    STARTC
+                     288     
+01DC 74D0            289                                     MOV     A,#0D0H
+01DE 5168            290                                     CALL    SEND
+                     291     
+01E0 7400            292                                     MOV     A,#00H
+01E2 5168            293                                     CALL    SEND
+                     294     
+01E4 7400            295                                     MOV     A,#00H                          ;SECONDE
+01E6 5168            296                                     CALL    SEND
+01E8 7410            297                                     MOV             A,#10H                          ;MINUTE
+01EA 5168            298                                     CALL    SEND
+01EC 7410            299                                     MOV             A,#10H                          ;HEURE
+01EE 5168            300                                     CALL    SEND                            
+01F0 7404            301                                     MOV             A,#04H                          ;JOUR
+A51 MACRO ASSEMBLER  DONGHO_DS1307                                                        06/15/2022 16:15:02 PAGE     6
+
+01F2 5168            302                                     CALL    SEND
+01F4 7415            303                                     MOV             A,#15H                          ;DATE
+01F6 5168            304                                     CALL    SEND
+01F8 7406            305                                     MOV             A,#06H                          ;MOIS
+01FA 5168            306                                     CALL    SEND
+01FC 7422            307                                     MOV             A,#22H                          ;AN
+01FE 5168            308                                     CALL    SEND
+0200 515F            309                                     CALL    STOP
+0202 22              310                                     RET
+                     311     ;==============================================================
+0203                 312     READ_TIME_DS1307:       
+0203 514A            313                                     CALL    I2C_INIT
+0205 5158            314                                     CALL    STARTC
+                     315     
+0207 74D0            316                                     MOV     A,#0D0H
+0209 5168            317                                     CALL    SEND
+020B 7400            318                                     MOV     A,#00H
+020D 5168            319                                     CALL    SEND
+020F 514F            320                                     CALL    RSTART
+0211 74D1            321                                     MOV     A,#0D1H
+0213 5168            322                                     CALL    SEND
+                     323     
+0215 7830            324                                     MOV             R0,#30H
+0217 5190            325     THEN0:                  CALL    RECV                            ;SECONDE
+0219 517E            326                                     CALL    ACK
+021B F6              327                                     MOV             @R0,A
+021C 08              328                                     INC             R0                              
+021D B836F7          329                                     CJNE    R0,#36H,THEN0
+                     330     
+0220 5190            331                                     CALL    RECV
+0222 F536            332                                     MOV             36H,A
+0224 5187            333     EXIT_READ:              CALL    NAK                             
+0226 515F            334                                     CALL    STOP
+0228 22              335                                     RET
+                     336                                     ;----------------------
+0229                 337     READ_REG_DS1307:
+                     338                                     ;MOV    R0,#01H
+0229 514A            339                                     CALL    I2C_INIT
+022B 5158            340                                     CALL    STARTC
+                     341     
+022D 74D0            342                                     MOV     A,#0D0H
+022F 5168            343                                     CALL    SEND
+0231 E8              344                                     MOV     A,R0
+0232 5168            345                                     CALL    SEND
+0234 514F            346                                     CALL    RSTART
+0236 74D1            347                                     MOV     A,#0D1H
+0238 5168            348                                     CALL    SEND
+                     349                                     
+023A 5190            350                                     CALL    RECV
+023C 5187            351                                     CALL    NAK                             
+023E 515F            352                                     CALL    STOP
+0240 C0E0            353                                     PUSH    ACC
+0242 E8              354                                     MOV             A,R0
+0243 2430            355                                     ADD             A,#30H
+0245 F8              356                                     MOV             R0,A
+0246 D0E0            357                                     POP             ACC
+0248 F6              358                                     MOV             @R0,A                                      
+                                  
+0249 22              359                                     RET
+                     360     ;========================================================                       
+024A                 361     I2C_INIT:
+024A D2B0            362                                     SETB    SDA
+024C D2B1            363                                     SETB    SCL
+024E 22              364                                     RET
+                     365                                     ;----------
+024F                 366     RSTART:                 ;REPETTED START
+A51 MACRO ASSEMBLER  DONGHO_DS1307                                                        06/15/2022 16:15:02 PAGE     7
+
+024F C2B1            367                                     CLR     SCL
+0251 D2B0            368                                     SETB    SDA
+0253 D2B1            369                                     SETB    SCL
+0255 C2B0            370                                     CLR     SDA
+0257 22              371                                     RET
+                     372                                     ;----------
+0258                 373     STARTC:
+0258 D2B1            374                                     SETB    SCL
+025A C2B0            375                                     CLR     SDA
+025C C2B1            376                                     CLR     SCL
+025E 22              377                                     RET
+                     378                                     ;----------
+025F                 379     STOP:
+025F C2B1            380                                     CLR     SCL
+0261 C2B0            381                                     CLR     SDA
+0263 D2B1            382                                     SETB    SCL
+0265 D2B0            383                                     SETB    SDA
+0267 22              384                                     RET
+                     385                                     ;----------
+0268                 386     SEND:
+0268 7B08            387                                     MOV     R3,#08
+026A                 388     BACK:
+026A C2B1            389                                     CLR     SCL
+026C 33              390                                     RLC     A
+026D 92B0            391                                     MOV     SDA,C
+026F D2B1            392                                     SETB    SCL
+0271 DBF7            393                                     DJNZ    R3,BACK
+0273 C2B1            394                                     CLR     SCL
+0275 D2B0            395                                     SETB    SDA
+0277 D2B1            396                                     SETB    SCL
+0279 A2B0            397                                     MOV     C, SDA
+027B C2B1            398                                     CLR     SCL
+027D 22              399                                     RET
+                     400                                     ;-------------
+027E                 401     ACK:
+027E C2B0            402                                     CLR     SDA
+0280 D2B1            403                                     SETB    SCL
+0282 C2B1            404                                     CLR     SCL
+0284 D2B0            405                                     SETB    SDA
+0286 22              406                                     RET
+0287                 407     NAK:
+0287 D2B0            408                                     SETB    SDA
+0289 D2B1            409                                     SETB    SCL
+028B C2B1            410                                     CLR     SCL
+028D D2B1            411                                     SETB    SCL
+028F 22              412                                     RET
+                     413                                     ;--------------
+0290                 414     RECV:
+0290 7B08            415                                     MOV     R3,#08
+0292                 416     BACK2:
+0292 C2B1            417                                     CLR     SCL
+0294 51A2            418                                     CALL    SCL_DELAY                       ;khong delay la xun
+                             g scl giu muc 1 rat lau so voi muc 0
+0296 D2B1            419                                     SETB    SCL                             
+0298 A2B0            420                                     MOV     C,SDA
+029A 33              421                                     RLC     A
+029B DBF5            422                                     DJNZ    R3,BACK2
+029D C2B1            423                                     CLR     SCL
+029F D2B0            424                                     SETB    SDA
+02A1 22              425                                     RET
+                     426                                     ;----------------
+02A2                 427     SCL_DELAY:
+02A2 00              428                                     NOP
+02A3 00              429                                     NOP
+02A4 22              430                                     RET
+                     431     ;=========================================================
+A51 MACRO ASSEMBLER  DONGHO_DS1307                                                        06/15/2022 16:15:02 PAGE     8
+
+02A5 7810            432     PRINT_LINE:             MOV             R0,#16
+02A7 7400            433                                     MOV             A,#0
+02A9 C0E0            434     PRINT_LINE_1:   PUSH    ACC
+02AB 51B3            435                                     CALL    PRINT_CHAR
+02AD D0E0            436                                     POP             ACC
+02AF 04              437                                     INC             A
+02B0 D8F7            438                                     DJNZ    R0,PRINT_LINE_1
+02B2 22              439                                     RET
+                     440     ;=========================================================
+02B3                 441     PRINT_CHAR:     
+02B3 93              442                                     MOVC    A,@A+DPTR
+02B4 B40002          443                                     CJNE    A,#00H,PRINT_CHAR1
+02B7 D3              444                                     SETB    C
+02B8 22              445                                     RET
+02B9 7104            446     PRINT_CHAR1:    CALL    DELAY_2MS
+02BB D2B7            447                                     SETB    RS
+02BD C083            448                                     PUSH    DPH
+02BF C082            449                                     PUSH    DPL
+02C1 7111            450                                     CALL    WRITE_OUT
+02C3 D082            451                                     POP             DPL
+02C5 D083            452                                     POP             DPH
+02C7 C3              453                                     CLR             C
+02C8 22              454     PRINT_CHAR2:    RET
+                     455     ;----------------------------------------------------------
+02C9                 456     WRITE_RAM:                                                                                 
+                                          ;NAP R1 VO TRUOC KHI CALL, viet thoi gian chua trong thanh ghi
+                     457                                     ;MOV            R1,#36H
+02C9 E7              458                                     MOV             A,@R1
+02CA 54F0            459                                     ANL             A,#0F0H
+02CC C4              460                                     SWAP    A
+02CD 2430            461                                     ADD             A,#30H
+02CF 7104            462                                     CALL    DELAY_2MS
+02D1 D2B7            463                                     SETB    RS
+02D3 7111            464                                     CALL    WRITE_OUT
+                     465     
+02D5 E7              466                                     MOV             A,@R1
+02D6 540F            467                                     ANL             A,#0FH  
+02D8 2430            468                                     ADD             A,#30H
+02DA 7104            469                                     CALL    DELAY_2MS
+02DC D2B7            470                                     SETB    RS
+02DE 7111            471                                     CALL    WRITE_OUT
+02E0 22              472                                     RET
+                     473     ;---------------------------------------------
+02E1                 474     INITIAL:                
+02E1 C2B6            475                                     CLR             EN                              ;do EN tich
+                              cu muc cao (khong co lenh nay cung khong sao)
+02E3 7438            476                                     MOV             A,#38H                  ;8 bits 5x8 dots
+02E5 7104            477                                     CALL    DELAY_2MS
+02E7 C2B7            478                                     CLR             RS
+02E9 7111            479                                     CALL    WRITE_OUT
+                     480                                     ;----------------
+02EB 7401            481                                     MOV             A,#01H                  ;clscr
+02ED 7104            482                                     CALL    DELAY_2MS
+02EF C2B7            483                                     CLR             RS
+02F1 7111            484                                     CALL    WRITE_OUT
+                     485                                     ;----------------
+02F3 740C            486                                     MOV             A,#0CH                  ;Hien man hinh, cho
+                             p ky tu
+02F5 7104            487                                     CALL    DELAY_2MS
+02F7 C2B7            488                                     CLR             RS
+02F9 7111            489                                     CALL    WRITE_OUT
+                     490                                     ;----------------
+02FB 7406            491                                     MOV             A,#06H                  ;Dich con tro sang 
+                             phai (khi ghi/doc data)
+02FD 7104            492                                     CALL    DELAY_2MS
+02FF C2B7            493                                     CLR             RS
+A51 MACRO ASSEMBLER  DONGHO_DS1307                                                        06/15/2022 16:15:02 PAGE     9
+
+0301 7111            494                                     CALL    WRITE_OUT
+                     495                                     ;----------------
+0303 22              496                                     RET
+                     497      ;---------------------------------------------------------------
+0304 D2D3            498     DELAY_2MS:              SETB    RS0
+0306 7F04            499                                     MOV             R7,#4
+0308 7EFA            500     DELAY_2MS_0:    MOV             R6,#250
+030A DEFE            501                                     DJNZ    R6,$
+030C DFFA            502                                     DJNZ    R7,DELAY_2MS_0
+030E C2D3            503                                     CLR             RS0
+0310 22              504                                     RET
+                     505     ;-----------------------------------------------------------------
+0311                 506     WRITE_OUT:              
+0311 F580            507                                     MOV             BUS_LCD,A
+0313 D2B6            508                                     SETB    EN
+0315 C2B6            509                                     CLR             EN
+0317 22              510                                     RET                                                        
+                                                                                                                        
+                                                               
+                     511                                     END
+A51 MACRO ASSEMBLER  DONGHO_DS1307                                                        06/15/2022 16:15:02 PAGE    10
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+ACC. . . . . . . .  D ADDR   00E0H   A   
+ACK. . . . . . . .  C ADDR   027EH   A   
+B. . . . . . . . .  D ADDR   00F0H   A   
+BACK . . . . . . .  C ADDR   026AH   A   
+BACK2. . . . . . .  C ADDR   0292H   A   
+BELL . . . . . . .  B ADDR   00B0H.4 A   
+BUS_LCD. . . . . .  D ADDR   0080H   A   
+DELAY_2MS. . . . .  C ADDR   0304H   A   
+DELAY_2MS_0. . . .  C ADDR   0308H   A   
+DONT_RING_BELL . .  C ADDR   0138H   A   
+DPH. . . . . . . .  D ADDR   0083H   A   
+DPL. . . . . . . .  D ADDR   0082H   A   
+EA . . . . . . . .  B ADDR   00A8H.7 A   
+EN . . . . . . . .  B ADDR   00B0H.6 A   
+ET0. . . . . . . .  B ADDR   00A8H.1 A   
+EX0. . . . . . . .  B ADDR   00A8H.0 A   
+EXIT_INT0_ISR. . .  C ADDR   0121H   A   
+EXIT_INT1_ISR. . .  C ADDR   015BH   A   
+EXIT_READ. . . . .  C ADDR   0224H   A   
+I2C_INIT . . . . .  C ADDR   024AH   A   
+INITIAL. . . . . .  C ADDR   02E1H   A   
+INT0_ISR . . . . .  C ADDR   00ADH   A   
+INT0_ISR_01. . . .  C ADDR   00BCH   A   
+INT0_ISR_02. . . .  C ADDR   00C1H   A   
+INT0_ISR_03. . . .  C ADDR   00CCH   A   
+INT0_ISR_04. . . .  C ADDR   00D1H   A   
+INT0_ISR_05. . . .  C ADDR   00DCH   A   
+INT0_ISR_06. . . .  C ADDR   00E1H   A   
+INT0_ISR_07. . . .  C ADDR   00ECH   A   
+INT0_ISR_08. . . .  C ADDR   00F1H   A   
+INT0_ISR_09. . . .  C ADDR   00FCH   A   
+INT0_ISR_10. . . .  C ADDR   0101H   A   
+INT0_ISR_11. . . .  C ADDR   010CH   A   
+INT0_ISR_12. . . .  C ADDR   0111H   A   
+INT0_ISR_13. . . .  C ADDR   011CH   A   
+INT1_ISR . . . . .  C ADDR   0160H   A   
+IP . . . . . . . .  D ADDR   00B8H   A   
+IT0. . . . . . . .  B ADDR   0088H.0 A   
+MAIN . . . . . . .  C ADDR   0033H   A   
+NAK. . . . . . . .  C ADDR   0287H   A   
+P0 . . . . . . . .  D ADDR   0080H   A   
+P3 . . . . . . . .  D ADDR   00B0H   A   
+PCON . . . . . . .  D ADDR   0087H   A   
+PRINT_CHAR . . . .  C ADDR   02B3H   A   
+PRINT_CHAR1. . . .  C ADDR   02B9H   A   
+PRINT_CHAR2. . . .  C ADDR   02C8H   A   
+PRINT_LINE . . . .  C ADDR   02A5H   A   
+PRINT_LINE_1 . . .  C ADDR   02A9H   A   
+PSW. . . . . . . .  D ADDR   00D0H   A   
+READ_REG_DS1307. .  C ADDR   0229H   A   
+READ_TIME_DS1307 .  C ADDR   0203H   A   
+RECV . . . . . . .  C ADDR   0290H   A   
+RS . . . . . . . .  B ADDR   00B0H.7 A   
+RS0. . . . . . . .  B ADDR   00D0H.3 A   
+RSTART . . . . . .  C ADDR   024FH   A   
+SCL. . . . . . . .  B ADDR   00B0H.1 A   
+SCL_DELAY. . . . .  C ADDR   02A2H   A   
+SDA. . . . . . . .  B ADDR   00B0H.0 A   
+SEND . . . . . . .  C ADDR   0268H   A   
+SET_TIME_DS1307. .  C ADDR   01D8H   A   
+A51 MACRO ASSEMBLER  DONGHO_DS1307                                                        06/15/2022 16:15:02 PAGE    11
+
+SLEEP_MODE . . . .  C ADDR   0078H   A   
+SP . . . . . . . .  D ADDR   0081H   A   
+SPI_ISR. . . . . .  C ADDR   0162H   A   
+STARTC . . . . . .  C ADDR   0258H   A   
+STOP . . . . . . .  C ADDR   025FH   A   
+T0_ISR . . . . . .  C ADDR   013DH   A   
+T1_ISR . . . . . .  C ADDR   0161H   A   
+T2_ISR . . . . . .  C ADDR   0163H   A   
+TAB_7JOUR. . . . .  C ADDR   009DH   A   
+TAB_LINE1. . . . .  C ADDR   007DH   A   
+TAB_LINE2. . . . .  C ADDR   008DH   A   
+TH0. . . . . . . .  D ADDR   008CH   A   
+THEN0. . . . . . .  C ADDR   0217H   A   
+TL0. . . . . . . .  D ADDR   008AH   A   
+TMOD . . . . . . .  D ADDR   0089H   A   
+TR0. . . . . . . .  B ADDR   0088H.4 A   
+WRITE_DD . . . . .  C ADDR   01B1H   A   
+WRITE_HH . . . . .  C ADDR   017EH   A   
+WRITE_JJ . . . . .  C ADDR   018BH   A   
+WRITE_MM . . . . .  C ADDR   0171H   A   
+WRITE_MOIS . . . .  C ADDR   01BEH   A   
+WRITE_OUT. . . . .  C ADDR   0311H   A   
+WRITE_RAM. . . . .  C ADDR   02C9H   A   
+WRITE_SS . . . . .  C ADDR   0164H   A   
+WRITE_YY . . . . .  C ADDR   01CBH   A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)
